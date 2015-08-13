@@ -97,6 +97,7 @@ public class TimerUpdate {
 					+ " WHERE `page_id`=\'"+pageId+"\' "
 					+ "and user_id = \'"+userId+"\';";
 
+			/*previous query*/
 			/*			sql ="DELETE from `time_analysis`.`page_active_time`"
 					+ " WHERE `page_id`='"+pageId+"'"
 					+ "and user_id = \'"+userId+"\' ;";*/
