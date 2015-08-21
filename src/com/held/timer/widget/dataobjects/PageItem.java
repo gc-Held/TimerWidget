@@ -5,6 +5,7 @@ public class PageItem {
 	private String userId;
 	private String pageTitle;
 	private double duration;
+	private String iconUrl;
 	/**
 	 * @return the pageId
 	 */
@@ -52,5 +53,17 @@ public class PageItem {
 	 */
 	public void setUserId(String userId) {
 		this.userId = userId;
+	}
+	/**
+	 * @return the iconUrl
+	 */
+	public String getIconUrl() {
+		return iconUrl;
+	}
+	/**
+	 * @param iconUrl the iconUrl to set
+	 */
+	public void setIconUrl(String iconUrl) {
+		this.iconUrl = iconUrl;
 	}
 }

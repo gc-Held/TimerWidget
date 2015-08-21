@@ -36,10 +36,10 @@ public class TimerUpdate {
 
 
 	static final String USER = "root";
-	/*static final String PASS = "gokul";*/
+	static final String PASS = "gokul";
 
 	/*Production db password*/
-	static final String PASS = "time_machine";
+	/*static final String PASS = "time_machine";*/
 
 	Connection conn = null;
 	Statement stmt = null;
@@ -54,8 +54,12 @@ public class TimerUpdate {
 			Class.forName("com.mysql.jdbc.Driver");
 			conn = DriverManager.getConnection(DB_URL,USER,PASS);
 			stmt = conn.createStatement();
-			sql ="DELETE from `time_analysis`.`page_active_time`"
-					+ " WHERE user_id = \'"+userId+"\' ;";
+			sql = "UPDATE `time_analysis`.`page_active_time`"
+					+ " SET `user_id`='Cleared',"
+					+ " `is_active`='0',"
+					+ " `is_deleted`='1'"
+					+ " WHERE user_id = \'"+userId+"\';";
+
 			int success = stmt.executeUpdate(sql);
 			if(success>0){
 				System.out.println("All pages for user"+userId+" has been deleted");
@@ -101,7 +105,7 @@ public class TimerUpdate {
 			/*			sql ="DELETE from `time_analysis`.`page_active_time`"
 					+ " WHERE `page_id`='"+pageId+"'"
 					+ "and user_id = \'"+userId+"\' ;";*/
-			
+
 			int success = stmt.executeUpdate(sql);
 			if(success>0){
 				System.out.println("page"+pageId+" for user"+userId+" has been deleted");
@@ -147,7 +151,7 @@ public class TimerUpdate {
 				baseUrl = baseUrl.substring(0,i);
 			}
 
-			
+
 			sql = "UPDATE `time_analysis`.`page_active_time` "
 					+ "SET `user_id`='Cleared',"
 					+ " `is_active`='0',"
@@ -175,7 +179,7 @@ public class TimerUpdate {
 				System.out.println("Entry created for url "+baseUrl+" for user "+userId+"! ");
 			}else{
 				System.out.println("Entry exists for url "+baseUrl+" for user "+userId+"! ");
-				
+
 			}
 
 		} catch (SQLException e) {
@@ -191,12 +195,13 @@ public class TimerUpdate {
 	}
 
 
-	@Path("/view/userId/{userId}/search/{search}")
+	@Path("/view/userId/{userId}/search/{search}/page/{page}")
 	@GET
 	@Produces("text/plain")
 	public String searchLinks(
 			@PathParam("userId") String userId,
-			@PathParam("search") String searchText
+			@PathParam("search") String searchText,
+			@PathParam("page") Integer page
 			) throws SQLException, JsonGenerationException, JsonMappingException{
 		PageItemsList lPageItemsList = new PageItemsList();
 		ArrayList<PageItem> lPageItems = new ArrayList<PageItem> ();
@@ -211,18 +216,24 @@ public class TimerUpdate {
 			sql = "SELECT * FROM time_analysis.page_active_time"
 					+ " where page_title like '%"+searchText+"%'"
 					+ " and user_id like '"+userId+"' "
-					+ "order by cumulative_time desc limit 10;";
-			
+					+ "order by cumulative_time desc;";
+
 			ResultSet result = stmt.executeQuery(sql);
 			PageItem item = null;
+			result.absolute(page*15);
+			int rowCount = 0;
 			while(result.next()){
 				item = new PageItem();
 
-				item.setPageId(result.getString(1));
-				item.setPageTitle(result.getString(2));
-				item.setUserId(result.getString(3));
-				item.setDuration(result.getInt(4));
+				item.setPageId(result.getString("page_id"));
+				item.setPageTitle(result.getString("page_title"));
+				item.setUserId(result.getString("user_id"));
+				item.setDuration(result.getInt("cumulative_time"));
+				item.setIconUrl(result.getString("icon_url"));
 				lPageItems.add(item);
+				if(++rowCount==15){
+					break;
+				}
 
 			}
 			lPageItemsList.setlPageItems(lPageItems);
@@ -239,7 +250,7 @@ public class TimerUpdate {
 
 	}
 
-	
+
 
 
 	@Path("/view/userId/{userId}/notify")
@@ -256,21 +267,25 @@ public class TimerUpdate {
 			Class.forName("com.mysql.jdbc.Driver");
 			conn = DriverManager.getConnection(DB_URL,USER,PASS);
 			stmt = conn.createStatement();
-			
+
 			sql = "SELECT * FROM time_analysis.page_active_time"
 					+ " where (UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(last_updated_timestamp)) <= 86400"
 					+ " and user_id like '"+userId+"' "
 					+ "order by cumulative_time desc limit 1;";
-			
+
 			ResultSet result = stmt.executeQuery(sql);
 			PageItem item = null;
+			
+			
 			while(result.next()){
 				item = new PageItem();
 
-				item.setPageId(result.getString(1));
-				item.setPageTitle(result.getString(2));
-				item.setUserId(result.getString(3));
-				item.setDuration(result.getInt(4));
+				item.setPageId(result.getString("page_id"));
+				item.setPageTitle(result.getString("page_title"));
+				item.setUserId(result.getString("user_id"));
+				item.setDuration(result.getInt("cumulative_time"));
+				item.setIconUrl(result.getString("icon_url"));
+				
 				lPageItems.add(item);
 
 			}
@@ -288,16 +303,17 @@ public class TimerUpdate {
 
 	}
 
-	
 
 
 
 
-	@Path("/view/userId/{userId}/trending")
+
+	@Path("/view/userId/{userId}/trending/{page}")
 	@GET
 	@Produces("text/plain")
 	public String getTrendingPages(
-			@PathParam("userId") String userId ) throws SQLException, JsonGenerationException, JsonMappingException{
+			@PathParam("userId") String userId,
+			@PathParam("page") Integer page) throws SQLException, JsonGenerationException, JsonMappingException{
 		PageItemsList lPageItemsList = new PageItemsList();
 		ArrayList<PageItem> lPageItems = new ArrayList<PageItem> ();
 		ObjectMapper objectMapper = new ObjectMapper();
@@ -313,32 +329,39 @@ public class TimerUpdate {
 							+ "`is_active` = '1'" 
 							+ " order by `cumulative_time` desc limit 10;";*/
 
-/*			sql = "select page_id,page_title,user_id,cumulative_time,cumulative_time / ( UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(last_updated_timestamp ))  "
+			/*			sql = "select page_id,page_title,user_id,cumulative_time,cumulative_time / ( UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(last_updated_timestamp ))  "
 					+ "from page_active_time "
 					+ "where `user_id` like \'"+userId+"\' and"
 					+ "`is_deleted` ='0' and"
 					+ "`is_active` = '1'"
 					+ " order by cumulative_time / ( UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(last_updated_timestamp )) desc "
 					+ "limit 10 ;";
-*/
+			 */
 			
-			sql = "SELECT * FROM time_analysis.page_active_time"
-					+ " where (UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(last_updated_timestamp)) <= 86400"
-					+ " and user_id like '"+userId+"' "
-					+ "order by cumulative_time desc limit 10;";
+				sql = "SELECT * FROM time_analysis.page_active_time"
+						+ " where (UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(last_updated_timestamp)) <= 86400"
+						+ " and user_id like '"+userId+"'  "
+						+ "order by cumulative_time desc ;";
 			
 			ResultSet result = stmt.executeQuery(sql);
 			PageItem item = null;
+			
+			result.absolute(page*15);
+			int rowCount = 0;
 			while(result.next()){
 				item = new PageItem();
 
-				item.setPageId(result.getString(1));
-				item.setPageTitle(result.getString(2));
-				item.setUserId(result.getString(3));
-				item.setDuration(result.getInt(4));
+				item.setPageId(result.getString("page_id"));
+				item.setPageTitle(result.getString("page_title"));
+				item.setUserId(result.getString("user_id"));
+				item.setDuration(result.getInt("cumulative_time"));
+				item.setIconUrl(result.getString("icon_url"));
 				lPageItems.add(item);
-
+				if(++rowCount==15){
+					break;
+				}
 			}
+			
 			lPageItemsList.setlPageItems(lPageItems);
 			jsonString = objectMapper.writeValueAsString(lPageItemsList);
 
@@ -360,7 +383,8 @@ public class TimerUpdate {
 			@FormParam("url") String timerId,
 			@FormParam("time") String viewTime,
 			@FormParam("userId") String userId,
-			@FormParam("title") String pageTitle )throws ClassNotFoundException, SQLException{
+			@FormParam("title") String pageTitle,
+			@FormParam("iconUrl") String iconUrl)throws ClassNotFoundException, SQLException{
 		Date date = new Date();
 		DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss ");
 		String timeStamp = dateFormat.format(date);
@@ -380,7 +404,7 @@ public class TimerUpdate {
 			conn = DriverManager.getConnection(DB_URL,USER,PASS);
 
 			stmt = conn.createStatement();
-			
+
 			String baseUrl = timerId;
 			if(baseUrl.startsWith("https://")){
 				baseUrl =  baseUrl.replaceFirst("https://", "");
@@ -403,7 +427,7 @@ public class TimerUpdate {
 				System.out.println("Entry exists in blacklist for url "+baseUrl+" for user "+userId+"! ");
 				return "Timer Updated";
 			}
-			
+
 
 			sql = "select * from `time_analysis`.`page_active_time`"
 					+ " where page_id =\'"+timerId+"\' "
@@ -413,8 +437,8 @@ public class TimerUpdate {
 			if(!result1.next()){
 				sql = "INSERT INTO"
 						+ " `time_analysis`.`page_active_time`"
-						+ " (`page_id`, `cumulative_time`,`user_id`,`page_title`) "
-						+ "VALUES (\'"+timerId+"\','0',\'"+userId+"\',\'"+pageTitle+"\');";
+						+ " (`page_id`, `cumulative_time`,`user_id`,`page_title`,`icon_url`) "
+						+ "VALUES (\'"+timerId+"\','0',\'"+userId+"\',\'"+pageTitle+"\',\'"+iconUrl+"\');";
 				stmt.execute(sql);
 				System.out.println("Created new entry for user"+userId+" page title" + pageTitle);
 			}else{
@@ -428,7 +452,8 @@ public class TimerUpdate {
 			sql = "UPDATE `time_analysis`.`page_active_time`"
 					+ " SET "
 					+ "`cumulative_time`='"+newTime+"',"
-					+ "`last_updated_timestamp`='"+timeStamp+"'"
+					+ "`last_updated_timestamp`='"+timeStamp+"',"
+					+ "`icon_url`=\'"+iconUrl+"\'"
 					+ " WHERE `page_id`='"+timerId+"'"
 					+ "and user_id = \'"+userId+"\' ;";
 			stmt.executeUpdate(sql);
