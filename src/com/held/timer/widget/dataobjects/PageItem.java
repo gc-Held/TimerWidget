@@ -6,6 +6,7 @@ public class PageItem {
 	private String pageTitle;
 	private double duration;
 	private String iconUrl;
+	private String baseUrl;
 	/**
 	 * @return the pageId
 	 */
@@ -65,5 +66,17 @@ public class PageItem {
 	 */
 	public void setIconUrl(String iconUrl) {
 		this.iconUrl = iconUrl;
+	}
+	/**
+	 * @return the baseUrl
+	 */
+	public String getBaseUrl() {
+		return baseUrl;
+	}
+	/**
+	 * @param baseUrl the baseUrl to set
+	 */
+	public void setBaseUrl(String baseUrl) {
+		this.baseUrl = baseUrl;
 	}
 }

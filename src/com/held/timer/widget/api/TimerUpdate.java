@@ -10,6 +10,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 
 import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
@@ -275,8 +276,8 @@ public class TimerUpdate {
 
 			ResultSet result = stmt.executeQuery(sql);
 			PageItem item = null;
-			
-			
+
+
 			while(result.next()){
 				item = new PageItem();
 
@@ -285,7 +286,7 @@ public class TimerUpdate {
 				item.setUserId(result.getString("user_id"));
 				item.setDuration(result.getInt("cumulative_time"));
 				item.setIconUrl(result.getString("icon_url"));
-				
+
 				lPageItems.add(item);
 
 			}
@@ -337,31 +338,38 @@ public class TimerUpdate {
 					+ " order by cumulative_time / ( UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(last_updated_timestamp )) desc "
 					+ "limit 10 ;";
 			 */
-			
-				sql = "SELECT * FROM time_analysis.page_active_time"
-						+ " where (UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(last_updated_timestamp)) <= 86400"
-						+ " and user_id like '"+userId+"'  "
-						+ "order by cumulative_time desc ;";
-			
+
+			sql = "SELECT * FROM time_analysis.page_active_time"
+					+ " where (UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(last_updated_timestamp)) <= 86400"
+					+ " and user_id like '"+userId+"' "
+					+ "order by cumulative_time desc ;";
+
 			ResultSet result = stmt.executeQuery(sql);
 			PageItem item = null;
-			
+
 			result.absolute(page*15);
 			int rowCount = 0;
+			HashMap<String, Boolean> mBaseUrls = new HashMap<String, Boolean>();   
 			while(result.next()){
 				item = new PageItem();
 
-				item.setPageId(result.getString("page_id"));
-				item.setPageTitle(result.getString("page_title"));
-				item.setUserId(result.getString("user_id"));
-				item.setDuration(result.getInt("cumulative_time"));
-				item.setIconUrl(result.getString("icon_url"));
-				lPageItems.add(item);
-				if(++rowCount==15){
-					break;
+				if(null!=mBaseUrls.get(result.getString("base_url")) && mBaseUrls.get(result.getString("base_url"))){
+					continue;
+				}else{
+					mBaseUrls.put(result.getString("base_url"), true);
+					item.setPageId(result.getString("page_id"));
+					item.setPageTitle(result.getString("page_title"));
+					item.setUserId(result.getString("user_id"));
+					item.setDuration(result.getInt("cumulative_time"));
+					item.setIconUrl(result.getString("icon_url"));
+					item.setBaseUrl(result.getString("base_url"));
+					lPageItems.add(item);
+					if(++rowCount==15){
+						break;
+					}
 				}
 			}
-			
+
 			lPageItemsList.setlPageItems(lPageItems);
 			jsonString = objectMapper.writeValueAsString(lPageItemsList);
 
@@ -374,6 +382,59 @@ public class TimerUpdate {
 
 		return jsonString;
 
+	}
+
+	@Path("/view/userId/{userId}/baseurl/{baseurl}")
+	@GET
+	@Produces("text/plain")
+	public String getCollatedPages(
+			@PathParam("userId") String userId,
+			@PathParam("baseurl") String baseUrl
+			) throws SQLException{
+		PageItemsList lPageItemsList = new PageItemsList();
+		ArrayList<PageItem> lPageItems = new ArrayList<PageItem> ();
+		ObjectMapper objectMapper = new ObjectMapper();
+		String jsonString = "";
+		String sql="";
+		try {
+			Class.forName("com.mysql.jdbc.Driver");
+			conn = DriverManager.getConnection(DB_URL,USER,PASS);
+			stmt = conn.createStatement();
+
+			sql = "SELECT * FROM time_analysis.page_active_time"
+					+ " where (UNIX_TIMESTAMP(now()) - UNIX_TIMESTAMP(last_updated_timestamp)) <= 86400"
+					+ " and user_id like '"+userId+"' "
+					+ "and base_url like '"+baseUrl+"'"
+					+ "order by cumulative_time desc ;";
+			ResultSet result = stmt.executeQuery(sql);
+			PageItem item = null;
+
+			int rowCount = 0;
+
+			while(result.next()){
+				item = new PageItem();
+
+				item.setPageId(result.getString("page_id"));
+				item.setPageTitle(result.getString("page_title"));
+				item.setUserId(result.getString("user_id"));
+				item.setDuration(result.getInt("cumulative_time"));
+				item.setIconUrl(result.getString("icon_url"));
+				item.setBaseUrl(result.getString("base_url"));
+				lPageItems.add(item);
+			}
+
+
+			lPageItemsList.setlPageItems(lPageItems);
+			jsonString = objectMapper.writeValueAsString(lPageItemsList);
+
+		}catch(Exception e){
+			System.out.println(e);
+		}finally{
+			conn.close();
+		}
+
+
+		return jsonString;
 	}
 
 	@Path("/update/timerId/duration")
@@ -398,6 +459,9 @@ public class TimerUpdate {
 			System.out.println("Invalid Page received ");
 			System.out.println(timerId);
 			return "No user Id";
+		}
+		if(null == iconUrl || iconUrl.isEmpty() || iconUrl.equalsIgnoreCase("")){
+			iconUrl  = "http://localhost:9082/icon.png";
 		}
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
@@ -437,13 +501,13 @@ public class TimerUpdate {
 			if(!result1.next()){
 				sql = "INSERT INTO"
 						+ " `time_analysis`.`page_active_time`"
-						+ " (`page_id`, `cumulative_time`,`user_id`,`page_title`,`icon_url`) "
-						+ "VALUES (\'"+timerId+"\','0',\'"+userId+"\',\'"+pageTitle+"\',\'"+iconUrl+"\');";
+						+ " (`page_id`, `cumulative_time`,`user_id`,`page_title`,`icon_url`,`base_url`) "
+						+ "VALUES (\'"+timerId+"\','0',\'"+userId+"\',\'"+pageTitle+"\',\'"+iconUrl+"\',\'"+baseUrl+"\');";
 				stmt.execute(sql);
 				System.out.println("Created new entry for user"+userId+" page title" + pageTitle);
 			}else{
 
-				prevTime = result1.getInt(4);
+				prevTime = result1.getInt("cumulative_time");
 			}
 			result1.close();
 			int addTime = Integer.valueOf(viewTime);
@@ -453,7 +517,8 @@ public class TimerUpdate {
 					+ " SET "
 					+ "`cumulative_time`='"+newTime+"',"
 					+ "`last_updated_timestamp`='"+timeStamp+"',"
-					+ "`icon_url`=\'"+iconUrl+"\'"
+					+ "`icon_url`=\'"+iconUrl+"\',"
+					+ "`base_url` = \'"+baseUrl+"\'"
 					+ " WHERE `page_id`='"+timerId+"'"
 					+ "and user_id = \'"+userId+"\' ;";
 			stmt.executeUpdate(sql);
