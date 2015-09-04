@@ -37,10 +37,10 @@ public class TimerUpdate {
 
 
 	static final String USER = "root";
-	static final String PASS = "gokul";
+	/*static final String PASS = "gokul";*/
 
 	/*Production db password*/
-	/*static final String PASS = "time_machine";*/
+	static final String PASS = "time_machine";
 
 	Connection conn = null;
 	Statement stmt = null;
@@ -51,6 +51,7 @@ public class TimerUpdate {
 	public String removeAllUserPage(
 			@FormParam ("userId") String userId){
 		String sql="";
+		String status = "";
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
 			conn = DriverManager.getConnection(DB_URL,USER,PASS);
@@ -64,20 +65,23 @@ public class TimerUpdate {
 			int success = stmt.executeUpdate(sql);
 			if(success>0){
 				System.out.println("All pages for user"+userId+" has been deleted");
+				status = "All pages for user has been deleted";
 			}else{
 				System.out.println("All pages for user"+userId+" deletetion unsuccessful");
+				
 			}
 
 
 		} catch (SQLException e) {
 
 			e.printStackTrace();
+			status = "All pages for user has NOT been deleted";
 		} catch (ClassNotFoundException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 
-		return "Pages Cleared";
+		return status;
 
 	}
 
@@ -353,10 +357,10 @@ public class TimerUpdate {
 			while(result.next()){
 				item = new PageItem();
 
-				if(null!=mBaseUrls.get(result.getString("base_url")) && mBaseUrls.get(result.getString("base_url"))){
+/*				if(null!=mBaseUrls.get(result.getString("base_url")) && mBaseUrls.get(result.getString("base_url"))){
 					continue;
 				}else{
-					mBaseUrls.put(result.getString("base_url"), true);
+					mBaseUrls.put(result.getString("base_url"), true);*/
 					item.setPageId(result.getString("page_id"));
 					item.setPageTitle(result.getString("page_title"));
 					item.setUserId(result.getString("user_id"));
@@ -367,7 +371,7 @@ public class TimerUpdate {
 					if(++rowCount==15){
 						break;
 					}
-				}
+				/*}*/
 			}
 
 			lPageItemsList.setlPageItems(lPageItems);
@@ -450,18 +454,23 @@ public class TimerUpdate {
 		DateFormat dateFormat = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss ");
 		String timeStamp = dateFormat.format(date);
 		String sql="";
+		String updateStatus = "";
 		int prevTime=0;
-		if(viewTime.equalsIgnoreCase("") || userId.equalsIgnoreCase("") || pageTitle.equalsIgnoreCase("") || timerId.equalsIgnoreCase("")){
-			System.out.println("No user id received ");
-			return "No user Id";
+		if(viewTime.equalsIgnoreCase("") || userId.equalsIgnoreCase("") || pageTitle.equalsIgnoreCase("new tab") || pageTitle.equalsIgnoreCase("") || timerId.equalsIgnoreCase("")){
+			System.out.println("Invalid Page ");
+			updateStatus =  "Invalid Details";
+			return updateStatus;
 		}
 		if(timerId.startsWith("chrome://")){
 			System.out.println("Invalid Page received ");
 			System.out.println(timerId);
-			return "No user Id";
+			updateStatus =  "No user Id";
+			return updateStatus;
 		}
 		if(null == iconUrl || iconUrl.isEmpty() || iconUrl.equalsIgnoreCase("")){
-			iconUrl  = "http://localhost:9082/icon.png";
+			iconUrl  = "http://52.26.203.91:80/icon.png";
+		}else{
+			iconUrl = "http://www.google.com/s2/favicons?domain_url="+iconUrl;
 		}
 		try {
 			Class.forName("com.mysql.jdbc.Driver");
@@ -489,7 +498,8 @@ public class TimerUpdate {
 				System.out.println("Page "+timerId+" is not on Blacklist "+baseUrl+" for user "+userId+"! ");
 			}else{
 				System.out.println("Entry exists in blacklist for url "+baseUrl+" for user "+userId+"! ");
-				return "Timer Updated";
+				updateStatus = "Domain in Blacklist -- Timer Not Updated";
+				return updateStatus;
 			}
 
 
@@ -524,16 +534,18 @@ public class TimerUpdate {
 			stmt.executeUpdate(sql);
 
 			System.out.println("Updated entry for user"+userId+" page title" + pageTitle);
+			updateStatus = "Time Updated";
 
 		} catch (SQLException e) {
 			System.out.println("SQL connection error");
 			e.printStackTrace();
+			updateStatus = "update Failed SQL Error";
 		}finally{
 
 			conn.close();
 		}
 
-		return "Time Updated";
+		return updateStatus;
 
 	}
 
