@@ -37,10 +37,10 @@ public class TimerUpdate {
 
 
 	static final String USER = "root";
-	/*static final String PASS = "gokul";*/
+	static final String PASS = "gokul";
 
 	/*Production db password*/
-	static final String PASS = "time_machine";
+	/*static final String PASS = "time_machine";*/
 
 	Connection conn = null;
 	Statement stmt = null;
@@ -290,9 +290,7 @@ public class TimerUpdate {
 				item.setUserId(result.getString("user_id"));
 				item.setDuration(result.getInt("cumulative_time"));
 				item.setIconUrl(result.getString("icon_url"));
-
 				lPageItems.add(item);
-
 			}
 			lPageItemsList.setlPageItems(lPageItems);
 			jsonString = objectMapper.writeValueAsString(lPageItemsList);
